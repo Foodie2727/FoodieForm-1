@@ -1,1 +1,60 @@
+const express = require('express');
+const bodyParser = require('body-parser');
+const fs = require('fs').promises;
+const path = require('path');
 
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(bodyParser.json());
+app.use(express.static('public'));
+
+// File to store reviews
+const REVIEWS_FILE = path.join(__dirname, 'reviews.json');
+
+// Endpoint to receive review data
+app.post('/submit-review', async (req, res) => {
+    try {
+        const review = {
+            ...req.body,
+            timestamp: new Date().toISOString()
+        };
+        
+        let reviews = [];
+        try {
+            const data = await fs.readFile(REVIEWS_FILE, 'utf8');
+            reviews = JSON.parse(data);
+        } catch (error) {
+            // File doesn't exist or is empty, start with an empty array
+        }
+        
+        reviews.push(review);
+        await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviews, null, 2));
+        
+        res.status(200).json({ message: 'Review submitted successfully' });
+    } catch (error) {
+        console.error('Error saving review:', error);
+        res.status(500).json({ message: 'Error saving review' });
+    }
+});
+
+// Endpoint to get all reviews
+app.get('/reviews', async (req, res) => {
+    try {
+        const data = await fs.readFile(REVIEWS_FILE, 'utf8');
+        const reviews = JSON.parse(data);
+        res.json(reviews);
+    } catch (error) {
+        console.error('Error reading reviews:', error);
+        res.status(500).json({ message: 'Error reading reviews' });
+    }
+});
+
+// Serve the dashboard HTML
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
